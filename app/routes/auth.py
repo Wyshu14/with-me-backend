@@ -11,20 +11,16 @@ auth_bp = Blueprint('auth', __name__)
 def register():
     data = request.get_json()
 
-    # Validate input
-    if not data.get('name') or not data.get('email') or not data.get('password'):
-        return jsonify({'error': 'All fields are required'}), 400
-
-    # Check existing user
+    # Check if email already exists
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already registered'}), 409
 
-    # Create user
+    # Create new user
     user = User(
         name=data['name'],
         email=data['email'],
         password_hash=generate_password_hash(data['password']),
-        role=data.get('role', 'guardian')
+        role=data.get('role', 'user')
     )
 
     db.session.add(user)
@@ -40,11 +36,13 @@ def register():
 def login():
     data = request.get_json()
 
-    user = User.query.filter_by(email=data.get('email')).first()
+    user = User.query.filter_by(email=data['email']).first()
 
-    if not user or not check_password_hash(user.password_hash, data.get('password')):
+    # Validate credentials
+    if not user or not check_password_hash(user.password_hash, data['password']):
         return jsonify({'error': 'Invalid email or password'}), 401
 
+    # Generate token
     token = create_access_token(identity=str(user.id))
 
     return jsonify({
@@ -61,14 +59,21 @@ def change_password():
 
     user = User.query.get(user_id)
 
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    if not check_password_hash(user.password_hash, data.get('current_password')):
+    # Check current password
+    if not check_password_hash(user.password_hash, data['current_password']):
         return jsonify({'error': 'Current password is incorrect'}), 401
 
-    user.password_hash = generate_password_hash(data.get('new_password'))
-
+    # Update password
+    user.password_hash = generate_password_hash(data['new_password'])
     db.session.commit()
 
     return jsonify({'message': 'Password changed successfully'}), 200
+
+
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    return jsonify(user.to_dict()), 200
