@@ -8,7 +8,7 @@ import os
 
 health_bp = Blueprint('health', __name__)
 
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 def ask_groq(prompt):
@@ -327,3 +327,14 @@ def acknowledge_reminder(reminder_id):
     reminder.status = data.get('status', 'acknowledged')
     db.session.commit()
     return jsonify(reminder.to_dict()), 200
+```
+
+Now save the file and run in terminal:
+```
+git add .
+```
+```
+git commit -m "Remove API key from code"
+```
+```
+git push -u origin main
