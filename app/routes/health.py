@@ -17,20 +17,16 @@ def ask_groq(prompt):
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
-
     body = {
         "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
         "max_tokens": 2048
     }
-
     res = requests.post(GROQ_URL, headers=headers, json=body, timeout=30)
     data = res.json()
-
     if 'choices' not in data:
         raise Exception(f"Groq error: {data}")
-
     return data['choices'][0]['message']['content']
 
 
@@ -57,13 +53,11 @@ def ai_analysis():
     if member_id:
         doctors = Doctor.query.filter_by(user_id=user_id, member_id=str(member_id)).all()
         doctor_ids = [d.id for d in doctors]
-
         records = MedicalRecord.query.filter(
             MedicalRecord.user_id == user_id,
             MedicalRecord.doctor_id.in_(doctor_ids),
             MedicalRecord.analysis != None
         ).order_by(MedicalRecord.created_at.desc()).limit(3).all()
-
         for r in records:
             score = extract_score(r.analysis)
             if score:
@@ -92,15 +86,12 @@ Simple language.
 
     try:
         result = ask_groq(prompt)
-
         if record_id:
             record = MedicalRecord.query.get(record_id)
             if record:
                 record.analysis = result
                 db.session.commit()
-
         return jsonify({'analysis': result}), 200
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -109,12 +100,10 @@ Simple language.
 @jwt_required()
 def get_records(doctor_id):
     user_id = int(get_jwt_identity())
-
     records = MedicalRecord.query.filter_by(
         user_id=user_id,
         doctor_id=doctor_id
     ).order_by(MedicalRecord.created_at.desc()).all()
-
     return jsonify([r.to_dict() for r in records]), 200
 
 
@@ -123,17 +112,14 @@ def get_records(doctor_id):
 def add_record():
     user_id = int(get_jwt_identity())
     data = request.get_json()
-
     record = MedicalRecord(
         user_id=user_id,
         doctor_id=data['doctor_id'],
         diagnosis=data.get('diagnosis', ''),
         note=data['note']
     )
-
     db.session.add(record)
     db.session.commit()
-
     return jsonify(record.to_dict()), 201
 
 
@@ -141,26 +127,18 @@ def add_record():
 @jwt_required()
 def health_progress(member_id):
     user_id = int(get_jwt_identity())
-
     doctors = Doctor.query.filter_by(user_id=user_id, member_id=str(member_id)).all()
     doctor_ids = [d.id for d in doctors]
-
     records = MedicalRecord.query.filter(
         MedicalRecord.user_id == user_id,
         MedicalRecord.doctor_id.in_(doctor_ids),
         MedicalRecord.analysis != None
     ).order_by(MedicalRecord.created_at).all()
-
     progress = []
-
     for r in records:
         score = extract_score(r.analysis)
         if score:
-            progress.append({
-                'date': r.date,
-                'score': score
-            })
-
+            progress.append({'date': r.date, 'score': score})
     return jsonify(progress), 200
 
 
@@ -168,29 +146,19 @@ def health_progress(member_id):
 @jwt_required()
 def health_trend(member_id):
     user_id = int(get_jwt_identity())
-
     doctors = Doctor.query.filter_by(user_id=user_id, member_id=str(member_id)).all()
     doctor_ids = [d.id for d in doctors]
-
     records = MedicalRecord.query.filter(
         MedicalRecord.user_id == user_id,
         MedicalRecord.doctor_id.in_(doctor_ids),
         MedicalRecord.analysis != None
     ).all()
-
     scores = [extract_score(r.analysis) for r in records if extract_score(r.analysis)]
-
     if len(scores) < 2:
         return jsonify({'trend': 'insufficient_data'}), 200
-
     diff = scores[-1] - scores[0]
-
     trend = "improving" if diff > 5 else "declining" if diff < -5 else "stable"
-
-    return jsonify({
-        'trend': trend,
-        'scores': scores
-    }), 200
+    return jsonify({'trend': trend, 'scores': scores}), 200
 
 
 @health_bp.route('/members', methods=['GET'])
@@ -206,16 +174,19 @@ def get_members():
 def add_member():
     user_id = int(get_jwt_identity())
     data = request.get_json()
-
     member = FamilyMember(
         user_id=user_id,
         name=data['name'],
         relation=data['relation'],
-        age=data['age']
+        age=data['age'],
+        phone=data.get('phone', '')
     )
-
     db.session.add(member)
     db.session.commit()
+
+    # ✅ REAL-TIME: Notify all clients new member added
+    from app import socketio
+    socketio.emit('member_added', {'member': member.to_dict()})
 
     return jsonify(member.to_dict()), 201
 
@@ -224,9 +195,12 @@ def add_member():
 @jwt_required()
 def delete_member(member_id):
     member = FamilyMember.query.get_or_404(member_id)
-
     db.session.delete(member)
     db.session.commit()
+
+    # ✅ REAL-TIME: Notify all clients member deleted
+    from app import socketio
+    socketio.emit('member_deleted', {'member_id': member_id})
 
     return jsonify({'message': 'Deleted'}), 200
 
@@ -236,12 +210,7 @@ def delete_member(member_id):
 def get_doctors():
     user_id = int(get_jwt_identity())
     member_id = request.args.get('member_id')
-
-    doctors = Doctor.query.filter_by(
-        user_id=user_id,
-        member_id=member_id
-    ).all()
-
+    doctors = Doctor.query.filter_by(user_id=user_id, member_id=member_id).all()
     return jsonify([d.to_dict() for d in doctors]), 200
 
 
@@ -250,16 +219,21 @@ def get_doctors():
 def add_doctor():
     user_id = int(get_jwt_identity())
     data = request.get_json()
-
     doctor = Doctor(
         user_id=user_id,
         member_id=str(data['member_id']),
         name=data['name'],
         speciality=data['speciality']
     )
-
     db.session.add(doctor)
     db.session.commit()
+
+    # ✅ REAL-TIME: Notify all clients new doctor added
+    from app import socketio
+    socketio.emit('doctor_added', {
+        'doctor': doctor.to_dict(),
+        'member_id': str(data['member_id'])
+    })
 
     return jsonify(doctor.to_dict()), 201
 
@@ -268,10 +242,8 @@ def add_doctor():
 @jwt_required()
 def delete_doctor(doctor_id):
     doctor = Doctor.query.get_or_404(doctor_id)
-
     db.session.delete(doctor)
     db.session.commit()
-
     return jsonify({'message': 'Deleted'}), 200
 
 
@@ -280,12 +252,7 @@ def delete_doctor(doctor_id):
 def get_reminders():
     user_id = int(get_jwt_identity())
     member_id = request.args.get('member_id')
-
-    reminders = Reminder.query.filter_by(
-        user_id=user_id,
-        member_id=member_id
-    ).all()
-
+    reminders = Reminder.query.filter_by(user_id=user_id, member_id=member_id).all()
     return jsonify([r.to_dict() for r in reminders]), 200
 
 
@@ -304,9 +271,15 @@ def add_reminder():
         time=data['time'],
         status='pending'
     )
-
     db.session.add(reminder)
     db.session.commit()
+
+    # ✅ REAL-TIME: Push new reminder instantly to all connected clients
+    from app import socketio
+    socketio.emit('new_reminder', {
+        'reminder': reminder.to_dict(),
+        'member_id': str(data['member_id'])
+    })
 
     return jsonify(reminder.to_dict()), 201
 
@@ -315,9 +288,12 @@ def add_reminder():
 @jwt_required()
 def delete_reminder(reminder_id):
     reminder = Reminder.query.get_or_404(reminder_id)
-
     db.session.delete(reminder)
     db.session.commit()
+
+    # ✅ REAL-TIME: Notify all clients reminder deleted
+    from app import socketio
+    socketio.emit('reminder_deleted', {'reminder_id': reminder_id})
 
     return jsonify({'message': 'Deleted'}), 200
 
@@ -326,10 +302,17 @@ def delete_reminder(reminder_id):
 @jwt_required()
 def acknowledge_reminder(reminder_id):
     reminder = Reminder.query.get_or_404(reminder_id)
-
     data = request.get_json()
     reminder.status = data.get('status', 'acknowledged')
-
     db.session.commit()
+
+    # ✅ REAL-TIME: Notify guardian that elder marked reminder as done
+    from app import socketio
+    socketio.emit('reminder_acknowledged', {
+        'reminder_id': reminder_id,
+        'member_id': reminder.member_id,
+        'title': reminder.title,
+        'status': reminder.status
+    })
 
     return jsonify(reminder.to_dict()), 200

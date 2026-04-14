@@ -1,4 +1,4 @@
-from app import create_app, db
+from app import create_app, db, socketio
 from app.models.models import User
 from werkzeug.security import generate_password_hash
 
@@ -7,7 +7,6 @@ app = create_app()
 with app.app_context():
     db.create_all()
     
-    # Create default account if it doesn't exist
     existing = User.query.filter_by(email='wthaneswaran14@gmail.com').first()
     if not existing:
         default_user = User(
@@ -23,4 +22,4 @@ with app.app_context():
         print('✅ Default account already exists!')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

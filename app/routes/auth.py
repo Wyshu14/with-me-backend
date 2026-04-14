@@ -77,3 +77,16 @@ def get_current_user():
     user = User.query.get(user_id)
 
     return jsonify(user.to_dict()), 200
+
+
+# 🔥 TEMP FIX (ONLY FOR YOU - REMOVE AFTER LOGIN WORKS)
+@auth_bp.route('/reset-password', methods=['GET'])
+def reset_password():
+    user = User.query.filter_by(email="wyshnavi.t2000@gmail.com").first()
+
+    if user:
+        user.password_hash = generate_password_hash("123456")
+        db.session.commit()
+        return "Password reset to 123456"
+
+    return "User not found"

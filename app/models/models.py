@@ -53,6 +53,7 @@ class Reminder(db.Model):
             'member_id': self.member_id,
             'title': self.title,
             'type': self.type,
+            'food_timing': self.food_timing,
             'foodTiming': self.food_timing,
             'time': self.time,
             'status': self.status
@@ -86,6 +87,7 @@ class FamilyMember(db.Model):
     name = db.Column(db.String(100), nullable=False)
     relation = db.Column(db.String(50), nullable=False)
     age = db.Column(db.Integer, nullable=False)
+    phone = db.Column(db.String(20), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -93,5 +95,6 @@ class FamilyMember(db.Model):
             'id': self.id,
             'name': self.name,
             'relation': self.relation,
-            'age': self.age
+            'age': self.age,
+            'phone': self.phone or ''
         }

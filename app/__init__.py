@@ -3,11 +3,13 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from dotenv import load_dotenv
 
 load_dotenv()
 
 db = SQLAlchemy()
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -16,14 +18,11 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'withme_secret_key_2024')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    CORS(app, origins=[
-        'http://localhost:3000',
-        'https://*.vercel.app',
-        os.environ.get('FRONTEND_URL', '')
-    ])
+    CORS(app, origins="*")
 
     db.init_app(app)
     JWTManager(app)
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
 
     from app.routes.auth import auth_bp
     from app.routes.health import health_bp
