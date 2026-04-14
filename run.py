@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from app import create_app, db, socketio
 from app.models.models import User
 from werkzeug.security import generate_password_hash
