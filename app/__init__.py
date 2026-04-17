@@ -22,7 +22,7 @@ def create_app():
 
     db.init_app(app)
     JWTManager(app)
-    socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
 
     from app.routes.auth import auth_bp
     from app.routes.health import health_bp
